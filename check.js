@@ -1,21 +1,23 @@
-const puppeteer = require('puppeteer');
+name: Banus Checker
 
-(async () => {
-  const browser = await puppeteer.launch({
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
+on:
+  repository_dispatch:
+    types: [run-checker]
 
-  const page = await browser.newPage();
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  console.log('Opening page...');
-  await page.goto('https://banusmedical.com/staff-check-banus/?run=1', {
-    waitUntil: 'networkidle2',
-    timeout: 30000
-  });
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-  console.log('Waiting for JS to execute...');
-  await new Promise(r => setTimeout(r, 15000));
+      - name: Install Puppeteer
+        run: npm install puppeteer
 
-  console.log('Done - webhook should have been sent');
-  await browser.close();
-})();
+      - name: Run checker
+        run: node check.js
