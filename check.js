@@ -8,6 +8,9 @@ const puppeteer = require('puppeteer');
   const page = await browser.newPage();
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
 
+  const afterDate = process.env.AFTER_DATE || new Date().toISOString().split('T')[0];
+  console.log('Looking for dates after:', afterDate);
+
   console.log('Opening page...');
   await page.goto('https://banusmedical.com/staff-check-banus/?run=1', {
     waitUntil: 'networkidle2',
@@ -16,7 +19,7 @@ const puppeteer = require('puppeteer');
 
   await new Promise(r => setTimeout(r, 2000));
 
-  const slots = await page.evaluate(async () => {
+  const slots = await page.evaluate(async (afterDate) => {
     function sleep(ms) {
       return new Promise(r => setTimeout(r, ms));
     }
@@ -25,7 +28,8 @@ const puppeteer = require('puppeteer');
       return Array.from(document.querySelectorAll('.os-day[data-date]'))
         .filter(day => {
           const minutes = day.getAttribute('data-bookable-minutes');
-          return minutes && minutes.trim() !== '';
+          const date = day.getAttribute('data-date');
+          return minutes && minutes.trim() !== '' && date > afterDate;
         });
     }
 
@@ -45,7 +49,7 @@ const puppeteer = require('puppeteer');
       });
     }
 
-    // HAPI 1: Kliko shërbimin "Solicitud de cita"
+    // HAPI 1: Kliko shërbimin
     await new Promise((resolve) => {
       const interval = setInterval(() => {
         const services = Array.from(document.querySelectorAll('.os-item, .os-service-item'));
@@ -83,7 +87,26 @@ const puppeteer = require('puppeteer');
 
     await sleep(1500);
 
-    // HAPI 3: Merr datat + navigo muajin tjetër nëse duhet
+    // HAPI 3: Navigo te muaji i dates se kerkuar
+    let maxNav = 12;
+    while (maxNav > 0) {
+      const allDays = Array.from(document.querySelectorAll('.os-day[data-date]'));
+      const lastDay = allDays[allDays.length - 1];
+      if (!lastDay) break;
+      const lastDate = lastDay.getAttribute('data-date');
+      if (lastDate > afterDate) break;
+
+      const nextBtn = document.querySelector('.os-next-month, .dp-next, [data-action="next"], .fc-next-button, button[aria-label="Next month"]');
+      if (!nextBtn) break;
+      console.log('➡️ Navigating to next month...');
+      nextBtn.click();
+      await sleep(2000);
+      maxNav--;
+    }
+
+    await sleep(1000);
+
+    // HAPI 4: Merr 5 datat e lira pas afterDate
     let allSlots = [];
     let maxMonths = 3;
 
@@ -100,25 +123,19 @@ const puppeteer = require('puppeteer');
 
       if (allSlots.length >= 5) break;
 
-      // Navigo muajin tjetër
       const nextBtn = document.querySelector('.os-next-month, .dp-next, [data-action="next"], .fc-next-button, button[aria-label="Next month"]');
-      if (!nextBtn) {
-        console.log('⚠️ No next month button found');
-        break;
-      }
-
-      console.log('➡️ Going to next month...');
+      if (!nextBtn) break;
+      console.log('➡️ Going to next month for more slots...');
       nextBtn.click();
       await sleep(2500);
       maxMonths--;
     }
 
     return allSlots.slice(0, 5);
-  });
+  }, afterDate);
 
   console.log('Slots found:', JSON.stringify(slots));
 
-  // HAPI 4: Dërgo te Make webhook
   const https = require('https');
   const payload = JSON.stringify({ service_id: 74, slots: slots });
   const url = new URL('https://hook.eu1.make.com/tqsosshbd6qsqytijp0g29bp6i68k471');
@@ -143,6 +160,6 @@ const puppeteer = require('puppeteer');
     req.end();
   });
 
-  console.log('Done - webhook sent with', slots.length, 'slots');
+  console.log('Done - sent', slots.length, 'slots');
   await browser.close();
 })();
