@@ -7,15 +7,18 @@ const puppeteer = require('puppeteer');
 
   const page = await browser.newPage();
 
+  // Shfaq të gjitha console.log nga faqja
+  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+
   console.log('Opening page...');
   await page.goto('https://banusmedical.com/staff-check-banus/?run=1', {
-    waitUntil: 'networkidle2',
-    timeout: 30000
+    waitUntil: 'domcontentloaded',
+    timeout: 60000
   });
 
-  console.log('Waiting for JS to execute...');
-  await new Promise(r => setTimeout(r, 15000));
+  console.log('Waiting 20 seconds for JS...');
+  await new Promise(r => setTimeout(r, 20000));
 
-  console.log('Done - webhook should have been sent');
+  console.log('Done');
   await browser.close();
 })();
