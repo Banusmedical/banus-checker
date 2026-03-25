@@ -10,22 +10,12 @@ const puppeteer = require('puppeteer');
 
   console.log('Opening page...');
   await page.goto('https://banusmedical.com/staff-check-banus/?run=1', {
-    waitUntil: 'domcontentloaded',
+    waitUntil: 'networkidle2',
     timeout: 60000
   });
 
-  console.log('Waiting 20 seconds for JS...');
-  await new Promise(r => setTimeout(r, 20000));
+  await new Promise(r => setTimeout(r, 2000));
 
-  function getAvailableDays() {
-    return Array.from(document.querySelectorAll('.os-day[data-date]'))
-      .filter(day => {
-        const minutes = day.getAttribute('data-bookable-minutes');
-        return minutes && minutes.trim() !== '';
-      });
-  }
-
-  // Merr datat e lira duke naviguar muajt nëse nevojitet
   const slots = await page.evaluate(async () => {
     function sleep(ms) {
       return new Promise(r => setTimeout(r, ms));
@@ -55,14 +45,52 @@ const puppeteer = require('puppeteer');
       });
     }
 
+    // HAPI 1: Kliko shërbimin "Solicitud de cita"
+    await new Promise((resolve) => {
+      const interval = setInterval(() => {
+        const services = Array.from(document.querySelectorAll('.os-item, .os-service-item'));
+        if (services.length > 0) {
+          clearInterval(interval);
+          let found = false;
+          services.forEach(service => {
+            const text = service.innerText || '';
+            if (text.includes('Solicitud de cita')) {
+              console.log('🟢 Clicking service');
+              service.click();
+              found = true;
+            }
+          });
+          if (!found) {
+            console.warn('⚠️ Clicking first service');
+            services[0].click();
+          }
+          resolve();
+        }
+      }, 500);
+    });
+
+    // HAPI 2: Prit kalendarin
+    await new Promise((resolve) => {
+      const interval = setInterval(() => {
+        const days = document.querySelectorAll('.os-day[data-date]');
+        if (days.length > 0) {
+          clearInterval(interval);
+          console.log('📆 Calendar loaded');
+          resolve();
+        }
+      }, 800);
+    });
+
+    await sleep(1500);
+
+    // HAPI 3: Merr datat + navigo muajin tjetër nëse duhet
     let allSlots = [];
-    let maxMonths = 3; // maksimum 3 muaj para
+    let maxMonths = 3;
 
     while (allSlots.length < 5 && maxMonths > 0) {
       const days = getAvailableDays();
       const newSlots = extractSlots(days);
 
-      // Shto vetëm datat që nuk i kemi
       for (const slot of newSlots) {
         if (allSlots.length >= 5) break;
         if (!allSlots.find(s => s.date === slot.date)) {
@@ -72,12 +100,16 @@ const puppeteer = require('puppeteer');
 
       if (allSlots.length >= 5) break;
 
-      // Kliko shigjetën për muajin tjetër
-      const nextBtn = document.querySelector('.os-next-month, .dp-next, [class*="next"]');
-      if (!nextBtn) break;
+      // Navigo muajin tjetër
+      const nextBtn = document.querySelector('.os-next-month, .dp-next, [data-action="next"], .fc-next-button, button[aria-label="Next month"]');
+      if (!nextBtn) {
+        console.log('⚠️ No next month button found');
+        break;
+      }
 
+      console.log('➡️ Going to next month...');
       nextBtn.click();
-      await sleep(2000);
+      await sleep(2500);
       maxMonths--;
     }
 
@@ -86,7 +118,7 @@ const puppeteer = require('puppeteer');
 
   console.log('Slots found:', JSON.stringify(slots));
 
-  // Dërgo te Make webhook
+  // HAPI 4: Dërgo te Make webhook
   const https = require('https');
   const payload = JSON.stringify({ service_id: 74, slots: slots });
   const url = new URL('https://hook.eu1.make.com/tqsosshbd6qsqytijp0g29bp6i68k471');
