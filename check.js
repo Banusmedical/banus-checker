@@ -136,6 +136,7 @@ const puppeteer = require('puppeteer');
 
   console.log('Slots found:', JSON.stringify(slots));
 
+  // Dergo webhook dhe mbyll menjëherë
   const https = require('https');
   const payload = JSON.stringify({ service_id: 74, slots: slots });
   const url = new URL('https://hook.eu1.make.com/tqsosshbd6qsqytijp0g29bp6i68k471');
@@ -162,4 +163,5 @@ const puppeteer = require('puppeteer');
 
   console.log('Done - sent', slots.length, 'slots');
   await browser.close();
+  process.exit(0); // ← SHTON KËTË — mbyll menjëherë!
 })();
