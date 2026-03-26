@@ -16,6 +16,12 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-puppeteer
+
       - name: Install Puppeteer
         run: npm install puppeteer
 
