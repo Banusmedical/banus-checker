@@ -162,6 +162,5 @@ const puppeteer = require('puppeteer');
   });
 
   console.log('Done - sent', slots.length, 'slots');
-  await browser.close();
-  process.exit(0); // ← SHTON KËTË — mbyll menjëherë!
+  process.exit(0);
 })();
