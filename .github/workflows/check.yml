@@ -26,3 +26,4 @@ jobs:
         run: node check.js
         env:
           AFTER_DATE: ${{ github.event.client_payload.after_date }}
+          CONVERSATION_ID: ${{ github.event.client_payload.conversation_id }}
