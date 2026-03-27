@@ -9,7 +9,9 @@ const puppeteer = require('puppeteer');
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
 
   const afterDate = process.env.AFTER_DATE || new Date().toISOString().split('T')[0];
+  const conversationId = process.env.CONVERSATION_ID || '';
   console.log('Looking for dates after:', afterDate);
+  console.log('Conversation ID:', conversationId);
 
   console.log('Opening page...');
   await page.goto('https://banusmedical.com/staff-check-banus/?run=1', {
@@ -136,9 +138,12 @@ const puppeteer = require('puppeteer');
 
   console.log('Slots found:', JSON.stringify(slots));
 
-  // Dergo webhook dhe mbyll menjëherë
   const https = require('https');
-  const payload = JSON.stringify({ service_id: 74, slots: slots });
+  const payload = JSON.stringify({ 
+    service_id: 74, 
+    slots: slots,
+    conversation_id: conversationId
+  });
   const url = new URL('https://hook.eu1.make.com/tqsosshbd6qsqytijp0g29bp6i68k471');
 
   const options = {
